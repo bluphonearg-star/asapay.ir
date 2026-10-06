@@ -1,92 +1,164 @@
+import { useRef, useEffect } from 'react'
 import { Link } from 'react-router-dom'
-import { CreditCard, Store, ShieldCheck, Sparkles } from 'lucide-react'
+import { CreditCard, Store, Sparkles, ChevronDown } from 'lucide-react'
 
 export default function Hero() {
+  const sectionRef = useRef<HTMLElement>(null)
+  const videoRef = useRef<HTMLVideoElement>(null)
+  const sceneRef = useRef<HTMLDivElement>(null)
+  const textRef = useRef<HTMLDivElement>(null)
+  const blob1Ref = useRef<HTMLDivElement>(null)
+  const blob2Ref = useRef<HTMLDivElement>(null)
+  const hintRef = useRef<HTMLDivElement>(null)
+
+  const smoothP = useRef(0)
+  const rafRef = useRef(0)
+
+  useEffect(() => {
+    const section = sectionRef.current
+    const video = videoRef.current
+    if (!section || !video) return
+
+    let targetP = 0
+
+    const updateTarget = () => {
+      const rect = section.getBoundingClientRect()
+      const total = rect.height - window.innerHeight
+      targetP = total > 0 ? Math.min(Math.max(-rect.top / total, 0), 1) : 0
+    }
+
+    const lerp = (a: number, b: number, t: number) => a + (b - a) * t
+
+    const tick = () => {
+      smoothP.current = lerp(smoothP.current, targetP, 0.07)
+      const p = smoothP.current
+
+      // — Scrub video timeline with scroll —
+      if (video.duration && !isNaN(video.duration)) {
+        const t = p * video.duration
+        if (Math.abs(video.currentTime - t) > 0.016) {
+          video.currentTime = t
+        }
+      }
+
+      // — 3D parallax on the video scene —
+      const scene = sceneRef.current
+      if (scene) {
+        const rotX = lerp(10, -14, p)
+        const rotY = lerp(-6, 9, p)
+        const scale = lerp(0.82, 1.08, p)
+        const tz = lerp(-80, 50, p)
+        scene.style.transform = `translateZ(${tz}px) scale(${scale}) rotateX(${rotX}deg) rotateY(${rotY}deg)`
+      }
+
+      // — Text parallax (moves faster, fades out) —
+      const txt = textRef.current
+      if (txt) {
+        const ty = lerp(0, -90, p)
+        const op = lerp(1, 0, Math.min(p * 2, 1))
+        txt.style.transform = `translateY(${ty}px)`
+        txt.style.opacity = String(op)
+      }
+
+      // — Decorative blobs parallax (slowest layer) —
+      if (blob1Ref.current) {
+        blob1Ref.current.style.transform = `translate3d(0, ${lerp(0, 140, p)}px, -120px)`
+      }
+      if (blob2Ref.current) {
+        blob2Ref.current.style.transform = `translate3d(0, ${lerp(0, -100, p)}px, -90px)`
+      }
+
+      // — Scroll hint fades quickly —
+      if (hintRef.current) {
+        hintRef.current.style.opacity = String(lerp(1, 0, Math.min(p * 5, 1)))
+      }
+
+      rafRef.current = requestAnimationFrame(tick)
+    }
+
+    updateTarget()
+    rafRef.current = requestAnimationFrame(tick)
+    window.addEventListener('scroll', updateTarget, { passive: true })
+    window.addEventListener('resize', updateTarget)
+
+    return () => {
+      cancelAnimationFrame(rafRef.current)
+      window.removeEventListener('scroll', updateTarget)
+      window.removeEventListener('resize', updateTarget)
+    }
+  }, [])
+
   return (
-    <section className="relative overflow-hidden bg-gradient-to-b from-light-blue via-bg-main to-bg-main">
-      {/* Decorative blobs */}
-      <div className="pointer-events-none absolute -top-24 -left-24 h-96 w-96 rounded-full bg-primary/5 blur-3xl" />
-      <div className="pointer-events-none absolute top-40 -right-24 h-80 w-80 rounded-full bg-primary-light/10 blur-3xl" />
+    <section ref={sectionRef} className="relative" style={{ height: '300vh' }}>
+      <div
+        className="sticky top-0 flex h-screen items-center justify-center overflow-hidden bg-gradient-to-b from-light-blue via-bg-main to-bg-main"
+        style={{ perspective: '1400px' }}
+      >
+        {/* Parallax decorative blobs */}
+        <div
+          ref={blob1Ref}
+          className="pointer-events-none absolute -top-24 -left-24 h-96 w-96 rounded-full bg-primary/5 blur-3xl"
+          style={{ transformStyle: 'preserve-3d' }}
+        />
+        <div
+          ref={blob2Ref}
+          className="pointer-events-none absolute top-40 -right-24 h-80 w-80 rounded-full bg-primary-light/10 blur-3xl"
+          style={{ transformStyle: 'preserve-3d' }}
+        />
 
-      <div className="container-max relative px-4 py-16 sm:px-6 lg:px-8 lg:py-24">
-        <div className="grid items-center gap-12 lg:grid-cols-2">
-          {/* Text Content */}
-          <div className="text-center lg:text-right">
-            <div className="mb-5 inline-flex items-center gap-2 rounded-full bg-white/80 px-4 py-2 text-sm font-medium text-primary shadow-sm backdrop-blur-sm animate-fade-in-down">
-              <Sparkles className="h-4 w-4" />
-              اعتبار خرید، ساده و مطمئن
-            </div>
-            <h1 className="text-3xl font-bold leading-tight text-dark-blue animate-fade-in-up sm:text-4xl lg:text-5xl">
-              با آساپی، خریدت رو آسون‌تر کن
-            </h1>
-            <p className="mx-auto mt-5 max-w-lg text-base leading-8 text-text-main/70 lg:mx-0 lg:text-lg animate-fade-in-up" style={{ animationDelay: '0.1s' }}>
-              اعتبار خرید دریافت کن و کالا و خدمات موردنیازت رو از پذیرندگان آساپی تهیه کن.
-            </p>
-            <div className="mt-8 flex flex-col items-center gap-3 sm:flex-row sm:justify-center lg:justify-start animate-fade-in-up" style={{ animationDelay: '0.2s' }}>
-              <Link to="/services" className="btn-primary w-full sm:w-auto">
-                <CreditCard className="h-5 w-5" />
-                دریافت اعتبار
-              </Link>
-              <Link to="/merchants" className="btn-outline w-full sm:w-auto">
-                <Store className="h-5 w-5" />
-                مشاهده پذیرندگان
-              </Link>
-            </div>
+        {/* 3D Video Scene */}
+        <div
+          ref={sceneRef}
+          className="relative z-10 will-change-transform"
+          style={{
+            transformStyle: 'preserve-3d',
+            transform: 'translateZ(-80px) scale(0.82) rotateX(10deg) rotateY(-6deg)',
+          }}
+        >
+          <video
+            ref={videoRef}
+            src="/asapay-logo.mp4"
+            muted
+            playsInline
+            preload="auto"
+            className="max-h-[72vh] max-w-[90vw] rounded-3xl shadow-2xl shadow-primary/20"
+          />
+
+        </div>
+
+        {/* Text overlay with parallax */}
+        <div
+          ref={textRef}
+          className="absolute inset-x-0 bottom-0 z-20 px-4 pb-10 text-center sm:pb-14"
+        >
+          <div className="mb-4 inline-flex items-center gap-2 rounded-full bg-white/80 px-4 py-2 text-sm font-medium text-primary shadow-sm backdrop-blur-sm">
+            <Sparkles className="h-4 w-4" />
+            اعتبار خرید، ساده و مطمئن
           </div>
-
-          {/* Graphic — Credit Card */}
-          <div className="relative flex items-center justify-center lg:justify-start">
-            <div className="relative animate-fade-in-up" style={{ animationDelay: '0.3s' }}>
-              {/* Main Card */}
-              <div className="relative h-56 w-80 rounded-2xl bg-gradient-to-br from-primary to-primary-dark p-6 shadow-2xl shadow-primary/30 animate-float sm:h-64 sm:w-96">
-                <div className="flex items-start justify-between">
-                  <div>
-                    <p className="text-xs text-white/70">ASAPAY</p>
-                    <p className="text-lg font-bold text-white">آساپی کارت</p>
-                  </div>
-                  <div className="h-8 w-12 rounded-md bg-white/20" />
-                </div>
-                <div className="mt-8">
-                  <div className="h-5 w-10 rounded bg-yellow-300/80" />
-                </div>
-                <div className="mt-6 flex gap-2">
-                  <div className="h-2 w-3 rounded-full bg-white/40" />
-                  <div className="h-2 w-3 rounded-full bg-white/40" />
-                  <div className="h-2 w-3 rounded-full bg-white/40" />
-                  <div className="h-2 w-3 rounded-full bg-white/40" />
-                  <span className="text-sm font-medium text-white/80">۱۲۳۴</span>
-                </div>
-                <div className="mt-4 flex items-end justify-between">
-                  <div>
-                    <p className="text-[10px] text-white/50">دارنده کارت</p>
-                    <p className="text-sm font-medium text-white">کاربر آساپی</p>
-                  </div>
-                  <div className="flex gap-1">
-                    <div className="h-6 w-6 rounded-full bg-white/30" />
-                    <div className="-mr-3 h-6 w-6 rounded-full bg-white/20" />
-                  </div>
-                </div>
-              </div>
-
-              {/* Floating Badge — Secure */}
-              <div className="absolute -top-5 -right-5 flex items-center gap-2 rounded-xl bg-white px-4 py-3 shadow-lg animate-float-slow">
-                <ShieldCheck className="h-5 w-5 text-primary" />
-                <div>
-                  <p className="text-xs font-bold text-dark-blue">پرداخت امن</p>
-                  <p className="text-[10px] text-text-main/50">۱۰۰٪ مطمئن</p>
-                </div>
-              </div>
-
-              {/* Floating Badge — Credit */}
-              <div className="absolute -bottom-5 -left-5 flex items-center gap-2 rounded-xl bg-white px-4 py-3 shadow-lg animate-float" style={{ animationDelay: '1s' }}>
-                <CreditCard className="h-5 w-5 text-primary" />
-                <div>
-                  <p className="text-xs font-bold text-dark-blue">اعتبار فعال</p>
-                  <p className="text-[10px] text-text-main/50">آماده خرید</p>
-                </div>
-              </div>
-            </div>
+          <h1 className="text-3xl font-bold leading-tight text-dark-blue sm:text-4xl lg:text-5xl">
+            با آساپی، خریدت رو آسون‌تر کن
+          </h1>
+          <p className="mx-auto mt-4 max-w-lg text-base leading-8 text-text-main/70 lg:text-lg">
+            اعتبار خرید دریافت کن و کالا و خدمات موردنیازت رو از پذیرندگان آساپی تهیه کن.
+          </p>
+          <div className="mt-6 flex flex-col items-center gap-3 sm:flex-row sm:justify-center">
+            <Link to="/services" className="btn-primary w-full sm:w-auto">
+              <CreditCard className="h-5 w-5" />
+              دریافت اعتبار
+            </Link>
+            <Link to="/merchants" className="btn-outline w-full sm:w-auto">
+              <Store className="h-5 w-5" />
+              مشاهده پذیرندگان
+            </Link>
           </div>
+        </div>
+
+        {/* Scroll hint */}
+        <div
+          ref={hintRef}
+          className="absolute bottom-3 left-1/2 z-30 -translate-x-1/2 text-primary/50"
+        >
+          <ChevronDown className="h-6 w-6 animate-bounce" />
         </div>
       </div>
     </section>
